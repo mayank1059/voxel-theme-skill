@@ -11,13 +11,20 @@ An [Antigravity](https://developers.google.com/gemini/antigravity) skill for bui
 
 ---
 
-## 🚀 Installation
+## 🚀 Quick Start (New Project)
 
 ```bash
-# Clone into your project
-mkdir -p .agent/skills
-git clone https://github.com/mayank1059/voxel-theme-agentic-skill.git .agent/skills/voxel-theme-agentic-skill
+# 1. Clone the skill
+git clone https://github.com/mayank1059/voxel-theme-skill.git .agent/skills/voxel-theme-skill
+
+# 2. Run one-command setup
+bash .agent/skills/voxel-theme-skill/boilerplate/setup.sh path/to/wordpress
+
+# 3. Edit config.php with discovered values, then build!
+wp eval-file build-single.php --path=path/to/wordpress
 ```
+
+---
 
 ## 📋 The 4 Stages
 
@@ -38,67 +45,92 @@ git clone https://github.com/mayank1059/voxel-theme-agentic-skill.git .agent/ski
 └─────────────────────────────────────────────────────────────┘
 ```
 
-| Stage | Skill | Purpose | Time |
-|-------|-------|---------|------|
-| **0** | `stage-0-setup` | Install WP-CLI, PHP, create helpers.php | 15 min |
-| **1** | `stage-1-research` | Discover template IDs, fields, widgets | 30-60 min |
-| **2** | `stage-2-build` | Write build scripts, generate templates | 2-6 hrs |
-| **3** | `stage-3-verify` | Test rendering, debug, clear caches | 30-60 min |
+| Stage | Folder | Purpose | Time |
+|-------|--------|---------|------|
+| **0** | `stage-0-setup/` | Install WP-CLI, PHP, create helpers.php | 15 min |
+| **1** | `stage-1-research/` | Discover template IDs, fields, widgets | 30-60 min |
+| **2** | `stage-2-build/` | Write build scripts, generate templates | 2-6 hrs |
+| **3** | `stage-3-verify/` | Test rendering, debug, clear caches | 30-60 min |
 
-**Total per template: 3-8 hours**
+---
+
+## 📦 Boilerplate (Start Any Project Instantly)
+
+The `boilerplate/` folder contains everything needed to start a new Voxel project:
+
+| File | Purpose |
+|------|---------|
+| `setup.sh` | **One-command setup** — verifies env, copies files, runs discovery |
+| `discover.php` | **Auto-discovery** — scans site for post types, fields, template IDs |
+| `config.php` | **Design tokens** — colors, fonts, spacing + shorthand helpers |
+| `helpers.php` | **Core library** — container(), inner(), widget(), tag(), save_template() |
+| `build-single.php` | Generic single page template (hero, specs, gallery, related) |
+| `build-card.php` | Generic card template (image, title, description, meta, pills) |
+| `build-archive.php` | Generic archive/listing page (hero + search + feed grid) |
+| `build-blog.php` | Blog post template (Elementor Pro — hero, article, author, comments) |
+| `mu-plugins/smart-cleanup.php` | Hide N/A values, collapse duplicate prices |
+
+### Using the Boilerplate
+
+```bash
+# Copy everything to your project and run setup
+bash boilerplate/setup.sh path/to/wordpress
+
+# Or manually:
+cp boilerplate/helpers.php ./
+cp boilerplate/config.php ./
+cp boilerplate/build-single.php ./
+wp eval-file discover.php --path=path/to/wordpress
+# Edit config.php with discovered values
+wp eval-file build-single.php --path=path/to/wordpress
+```
+
+---
 
 ## 📁 Repository Structure
 
 ```
-voxel-theme-agentic-skill/
-├── README.md                           # This file
+voxel-theme-skill/
+├── README.md                              # This file
+├── REFERENCE.md                           # Full knowledge base (793 lines)
 │
-├── stage-0-setup/                      # Prerequisites
-│   ├── SKILL.md                        # Setup instructions
-│   ├── scripts/helpers.php             # Core build functions
-│   └── resources/checklist.md          # Environment checklist
+├── stage-0-setup/                         # Stage 0: Prerequisites
+│   ├── SKILL.md
+│   └── scripts/helpers.php
 │
-├── stage-1-research/                   # Discovery
-│   ├── SKILL.md                        # How to discover template info
-│   └── resources/
-│       ├── field-discovery.md          # WP-CLI commands for fields
-│       └── widget-reference.md         # All widget types + settings
+├── stage-1-research/                      # Stage 1: Discovery
+│   └── SKILL.md
 │
-├── stage-2-build/                      # Template building
-│   ├── SKILL.md                        # Build patterns + pitfalls
-│   ├── scripts/helpers.php             # Copy of helpers (convenience)
-│   └── examples/
-│       └── build-example.php           # Example build script
+├── stage-2-build/                         # Stage 2: Build patterns
+│   ├── SKILL.md
+│   ├── scripts/helpers.php
+│   └── examples/build-example.php
 │
-└── stage-3-verify/                     # Testing
-    ├── SKILL.md                        # Debug + cache clearing
-    └── resources/pitfalls.md           # Common pitfalls quick reference
+├── stage-3-verify/                        # Stage 3: Testing & debug
+│   └── SKILL.md
+│
+└── boilerplate/                           # 🚀 Project starter kit
+    ├── setup.sh                           # One-command setup
+    ├── discover.php                       # Auto-discovery
+    ├── config.php                         # Design tokens + helpers
+    ├── helpers.php                        # Core build functions
+    ├── build-single.php                   # Single page template
+    ├── build-card.php                     # Card template
+    ├── build-archive.php                  # Archive/listing page
+    ├── build-blog.php                     # Blog post template
+    └── mu-plugins/
+        └── smart-cleanup.php             # N/A hiding + price cleanup
 ```
+
+---
 
 ## 🔧 Prerequisites
 
-- PHP 8.0+ (Homebrew or system)
+- PHP 8.0+
 - WP-CLI
 - WordPress with Voxel Theme + Elementor Pro
-- Local or remote MySQL database
 
-## 📖 Usage
-
-### Start a New Template
-
-```bash
-# 1. Copy helpers.php into your project
-cp .agent/skills/voxel-theme-agentic-skill/stage-0-setup/scripts/helpers.php ./
-
-# 2. Discover template IDs (Stage 1)
-wp eval 'echo json_encode(json_decode(get_option("voxel:post_types","{}"),true));' --path=wordpress | jq
-
-# 3. Write your build script (Stage 2)
-# Follow patterns in stage-2-build/examples/
-
-# 4. Run and verify (Stage 3)
-wp eval-file build-my-template.php --path=wordpress
-```
+---
 
 ## 📄 License
 
