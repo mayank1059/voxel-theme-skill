@@ -47,6 +47,11 @@ Open the page in a browser and check:
 - [ ] Links are clickable and correct
 - [ ] Layout is responsive on mobile
 - [ ] Colors match design tokens
+- [ ] **Header:** Logo, nav links, and CTA render in a horizontal row
+- [ ] **Mega Menu:** Hovering over "Practice Areas" opens the dropdown panel
+- [ ] **Mega Menu:** Moving cursor into the dropdown keeps it open
+- [ ] **Mega Menu:** Moving cursor away from both trigger and panel closes it
+- [ ] **Sticky Header:** Header stays fixed at top on scroll
 
 ---
 
@@ -156,6 +161,50 @@ wp eval '\Elementor\Plugin::$instance->files_manager->clear_cache();' --path=wor
 | 11 | Feed shows zero results | Missing filter list arrays | Add empty `ts_filter_list__<type>` for ALL types |
 | 12 | Header/footer broke after rebuild | Internal Voxel configs lost | NEVER rebuild — CSS overrides only |
 | 13 | Background image from field won't load | `@tags()` unreliable in CSS bg | Use image widget instead |
+| 14 | Mega menu not appearing on hover | Sibling `~` selector broken by `.e-con-inner` wrappers | Use **parent-child** DOM structure (`wrapper > panel`), not siblings |
+| 15 | Mega menu clipped/cut off | Elementor `.e-con` sets `overflow: hidden` | Apply `overflow: visible !important` to **ALL** ancestor containers via mu-plugin |
+| 16 | `custom_css` on containers not working | Elementor specificity overrides it | Inject CSS via **mu-plugin** (`add_action('wp_head', ..., 999)`) |
+| 17 | Nav items vertical instead of horizontal | `.e-con-inner` wrapper breaks flex layout | Target both `.class` and `.class.e-con > .e-con-inner` with `flex-direction: row !important` |
+| 18 | `WP_Query not found` error | Ran `php build_x.php` directly | Must use `wp eval-file build_x.php` for WP functions |
+| 19 | WordPress redirects to wrong port | `siteurl`/`home` options mismatch | `wp option update siteurl 'http://localhost:PORT'` |
+| 20 | Mu-plugin CSS not loading | Wrong file extension or syntax error | File must be `.php`, start with `<?php`, use `add_action('wp_head', ...)` |
+
+---
+
+## Step 5: Debug Header & Mega Menu
+
+### Mega menu doesn't appear on hover
+
+1. **Check DOM structure:** The mega panel must be a **child** of the trigger wrapper, not a sibling.
+   ```bash
+   # Inspect the DOM — look for the nesting relationship
+   curl -s YOUR_URL | grep -A5 'mal-pa-wrapper'
+   ```
+2. **Check overflow:** All ancestor containers need `overflow: visible !important`.
+   ```bash
+   # Verify mu-plugin is loaded
+   curl -s YOUR_URL | grep 'mal-mega-menu-css'
+   ```
+3. **Check mu-plugin is active:** Mu-plugins load automatically — no activation needed. But verify the file:
+   ```bash
+   ls -la wp-content/mu-plugins/mal-mega-menu.php
+   wp eval 'var_dump(wp_get_mu_plugins());'
+   ```
+
+### Header nav items stacking vertically
+
+- Target both the class and its Elementor wrapper:
+  ```css
+  .mal-nav-area, .mal-nav-area.e-con, .mal-nav-area > .e-con-inner {
+      display: flex !important;
+      flex-direction: row !important;
+  }
+  ```
+
+### Mega menu appears but gets clipped
+
+- Add `overflow: visible !important` to **every** ancestor from `.mal-header` down to `.mal-pa-wrapper`.
+- Check with browser DevTools: right-click the mega panel → Inspect → look for any parent with `overflow: hidden`.
 
 ---
 
@@ -168,5 +217,7 @@ After Stage 3, your template should:
 - ✅ Have correct colors, fonts, and spacing
 - ✅ Work on mobile/tablet viewports
 - ✅ Pass the visual checklist above
+- ✅ Header renders horizontally with working mega menu dropdown
+- ✅ Mu-plugin CSS loads and overrides Elementor defaults
 
 **Template is production-ready.**
