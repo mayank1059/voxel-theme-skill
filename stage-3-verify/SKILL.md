@@ -15,7 +15,7 @@ description: Verify, debug, and cache-clear Voxel + Elementor templates after bu
 
 ```bash
 # Fetch the page and look for expected widget markers
-curl -s "YOUR_URL?v=$(date +%s)" | grep -oE "theme-post-title|theme-post-content|ts-post-feed|author-box|post-info|heading|text-editor" | sort | uniq -c | sort -rn
+curl -s "YOUR_URL?v=$(date +%s)" | grep -oE "theme-post-title|theme-post-content|ts-post-feed|author-box|post-info|heading|text-editor|ts-gallery" | sort | uniq -c | sort -rn
 ```
 
 ### Check for dynamic tag output
@@ -33,25 +33,48 @@ curl -s "YOUR_URL" | grep -c '@tags()'
 curl -s "YOUR_URL" | grep -iE "elementor-widget-empty|error|warning|placeholder"
 ```
 
+### Check Material Symbols loaded
+
+```bash
+curl -s "YOUR_URL" | grep -c "material-symbols"
+# Should be ≥ 1 (stylesheet link)
+```
+
 ---
 
 ## Step 2: Visual Verification
 
 Open the page in a browser and check:
 
-- [ ] Featured image renders (not placeholder)
-- [ ] Title shows dynamic post title
+- [ ] Featured/cover image renders (not placeholder)
+- [ ] Title shows dynamic post title (not raw `@tags`)
 - [ ] Content/description populates
 - [ ] Images from custom fields load
 - [ ] Post feed shows cards with data
 - [ ] Links are clickable and correct
 - [ ] Layout is responsive on mobile
 - [ ] Colors match design tokens
-- [ ] **Header:** Logo, nav links, and CTA render in a horizontal row
-- [ ] **Mega Menu:** Hovering over "Practice Areas" opens the dropdown panel
-- [ ] **Mega Menu:** Moving cursor into the dropdown keeps it open
-- [ ] **Mega Menu:** Moving cursor away from both trigger and panel closes it
-- [ ] **Sticky Header:** Header stays fixed at top on scroll
+- [ ] Material Symbols icons render (not empty squares or raw text)
+- [ ] Repeater loops render all entries (e.g., lesson structure steps)
+- [ ] Gallery shows actual images (not empty grid)
+- [ ] Taxonomy/select fields show labels (not raw slugs)
+- [ ] Sidebar cards have box shadows and rounded corners
+- [ ] Hero overlay gradient is visible (not too light or too dark)
+- [ ] Badge backgrounds are visible against the hero image
+- [ ] Header is sticky and stays on top when scrolling
+- [ ] Footer columns are horizontal (not stacked vertically)
+
+### Browser-Based Verification
+
+Use a browser automation tool to capture screenshots at key scroll positions:
+
+1. **Hero section** — verify image, overlay, badges, title, price
+2. **Quick info bar** — verify stat boxes, icons, values
+3. **Content area** — verify two-column layout, sidebar position
+4. **Repeater sections** — verify timeline steps, inclusion lists
+5. **Gallery** — verify images render in grid
+6. **Related posts** — verify card feed renders
+7. **Footer** — verify horizontal column layout
 
 ---
 
@@ -59,16 +82,14 @@ Open the page in a browser and check:
 
 If changes don't appear, clear caches in order:
 
-### Method 1: Programmatic (in build script — already handled by `save_template()`)
+### Method 1: Programmatic (already handled by `save_template()`)
 
-```php
-delete_post_meta($id, '_elementor_css');
-delete_post_meta($id, '_elementor_controls_usage');
-clean_post_cache($id);
-\Elementor\Plugin::$instance->files_manager->clear_cache();
-$css = \Elementor\Core\Files\CSS\Post::create($id);
-$css->update();
-```
+The `save_template()` function in helpers.php already clears:
+- `_elementor_css` post meta
+- `_elementor_controls_usage` post meta
+- Post cache
+- Elementor CSS files
+- Old revisions
 
 ### Method 2: WP-CLI
 
@@ -87,15 +108,23 @@ echo "Cache cleared for TEMPLATE_ID\n";
 wp cache flush --path=wordpress
 ```
 
-### Method 3: Full nuclear clear
+### Method 3: Nuclear clear
 
 ```bash
 # Delete all Elementor CSS files
-rm -rf path/to/wordpress/wp-content/uploads/elementor/css/*
+rm -rf wordpress/wp-content/uploads/elementor/css/*
 
 # Then regenerate
 wp eval '\Elementor\Plugin::$instance->files_manager->clear_cache();' --path=wordpress
 ```
+
+### Method 4: Hard-refresh the browser
+
+After clearing server caches, always hard-refresh the browser:
+- **Mac:** `Cmd + Shift + R`
+- **Windows:** `Ctrl + Shift + R`
+
+Or append `?v=123` to the URL.
 
 ---
 
@@ -103,9 +132,10 @@ wp eval '\Elementor\Plugin::$instance->files_manager->clear_cache();' --path=wor
 
 ### Template changes don't show up
 
-1. Wrong template ID — run `curl | grep data-elementor-id` to find the real active template
-2. Elementor Pro Theme Builder override — blog posts use Elementor Pro, not Voxel templates
-3. Cache not cleared — run nuclear clear above
+1. **Wrong template ID** — run `curl | grep data-elementor-id` to find the real active template
+2. **Elementor Pro Theme Builder override** — blog posts use Elementor Pro, not Voxel templates
+3. **Cache not cleared** — run nuclear clear above
+4. **Browser cache** — hard-refresh or use incognito mode
 
 ### Featured image shows placeholder.png
 
@@ -120,7 +150,7 @@ wp eval '\Elementor\Plugin::$instance->files_manager->clear_cache();' --path=wor
 ### Post feed shows no results
 
 - **Cause:** Missing `ts_filter_list__<type>` empty arrays
-- **Fix:** Add empty arrays for EVERY registered post type
+- **Fix:** Add empty arrays for EVERY registered post type (lessons, schools, post, page, etc.)
 
 ### Gallery widget is empty
 
@@ -135,12 +165,68 @@ wp eval '\Elementor\Plugin::$instance->files_manager->clear_cache();' --path=wor
 ### Colors are wrong / ignored
 
 - **Cause:** Missing `__globals__` override
-- **Fix:** Add `'__globals__' => ['color_key' => '']` alongside color value
+- **Fix:** Add `'__globals__' => ['color_key' => '']` alongside the color value
+- **Also check:** Widget-level colors use `_background_color` (with underscore prefix). Must clear `'__globals__' => ['_background_color' => '']`
 
 ### Flex children stack vertically instead of side-by-side
 
 - **Cause:** Missing explicit width on child containers
 - **Fix:** Add `'width' => ['size' => 48, 'unit' => '%']` to each child
+- **Alternative:** Use `custom_css` with explicit flex values
+
+### Taxonomy/select shows raw slug instead of label
+
+- **Cause:** Using `@post(field-key)` without `.label` suffix
+- **Fix:** Use `@post(field-key.label)` for taxonomy and select fields
+
+### Repeater loop renders nothing
+
+- **Cause 1:** `_voxel_loop` value is wrong — must be exact field key
+- **Cause 2:** Repeater data not properly saved (must be JSON array, `wp_slash`'d)
+- **Fix:** Check `wp eval 'echo get_post_meta(POST_ID, "field-key", true);'` — should output valid JSON array
+- **Fix:** When saving repeater data, always use `wp_slash(wp_json_encode($data))`
+
+### Repeater sub-fields render empty
+
+- **Cause:** Wrong sub-field key. Inside a loop, access as `@post(repeater-key.sub-field-key)`
+- **Fix:** Verify sub-field keys match the field configuration exactly
+
+### Material Symbols icons don't render (show empty or squares)
+
+- **Cause:** Font not loaded
+- **Fix:** Ensure the MU plugin is in place or add the `@import` in header/footer `custom_css`
+- **Font URL:** `https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@24,400,0,0`
+
+### Header/footer style broken after rebuild 
+
+- **Cause:** Voxel stores internal configs in header/footer templates
+- **Fix:** If the header/footer already has Voxel-specific internal settings, use CSS-only overrides via MU plugin rather than rebuilding the template. For fresh sites, full rebuild is safe.
+
+### Location field renders empty
+
+- **Cause:** Using `@post(location)` — renders raw JSON
+- **Fix:** Use `@post(location.address)` for full address or `@post(location.short_address)` for city
+
+### Badge backgrounds invisible against hero
+
+- **Cause:** Using light/white transparent backgrounds on dark overlays
+- **Fix:** Use `rgba(0,0,0,0.45)` for dark semi-transparent badges, or solid teal for primary badges
+
+### Hero overlay too light or too dark
+
+- **Cause:** Wrong gradient values in `custom_css`
+- **Fix:** Adjust the `::before` gradient. For a dramatic hero effect:
+  ```css
+  selector::before { background: linear-gradient(to top, rgba(0,0,0,0.85) 0%, rgba(0,0,0,0.60) 50%, rgba(0,0,0,0.50) 100%) !important; }
+  ```
+
+### Footer columns stacking vertically
+
+- **Cause:** No explicit width on column children
+- **Fix:** Add `width` to each child inner container AND add safety CSS:
+  ```php
+  'custom_css' => 'selector { display: flex !important; flex-direction: row !important; }'
+  ```
 
 ---
 
@@ -150,8 +236,8 @@ wp eval '\Elementor\Plugin::$instance->files_manager->clear_cache();' --path=wor
 |---|---------|-----------|-----|
 | 1 | PHP warnings in controls-stack | Used `__dynamic__` | Use `@tags()@post()@endtags()` |
 | 2 | JSON corruption after save | Missing `wp_slash()` | Always `wp_slash()` before `update_post_meta` |
-| 3 | Button shows solid bg instead of transparent | Voxel overrides Elementor button | Use `text-editor` + styled `<a>` |
-| 4 | Children stack vertically | No explicit width on inner() | Add `width` percentage to each child |
+| 3 | Button shows solid bg instead of themed | Voxel overrides Elementor button | Use `text-editor` + styled `<a>` or `custom_css` gradient override |
+| 4 | Children stack vertically | No explicit width on inner() | Add `width` percentage or `custom_css` flex |
 | 5 | Image shows placeholder | Missing both url AND id | Set `url` + `id` with dynamic tags |
 | 6 | Post relation renders empty | Object tag, not value tag | Use `@post(field.:title)` |
 | 7 | Gallery widget empty | Wrong suffix | Use `.ids` suffix: `@post(gallery.ids)` |
@@ -159,52 +245,31 @@ wp eval '\Elementor\Plugin::$instance->files_manager->clear_cache();' --path=wor
 | 9 | Custom colors ignored | Global kit override | Add `'__globals__' => ['key' => '']` |
 | 10 | Featured image = placeholder.png | position:absolute CSS | Use max-height + object-fit |
 | 11 | Feed shows zero results | Missing filter list arrays | Add empty `ts_filter_list__<type>` for ALL types |
-| 12 | Header/footer broke after rebuild | Internal Voxel configs lost | NEVER rebuild — CSS overrides only |
-| 13 | Background image from field won't load | `@tags()` unreliable in CSS bg | Use image widget instead |
-| 14 | Mega menu not appearing on hover | Sibling `~` selector broken by `.e-con-inner` wrappers | Use **parent-child** DOM structure (`wrapper > panel`), not siblings |
-| 15 | Mega menu clipped/cut off | Elementor `.e-con` sets `overflow: hidden` | Apply `overflow: visible !important` to **ALL** ancestor containers via mu-plugin |
-| 16 | `custom_css` on containers not working | Elementor specificity overrides it | Inject CSS via **mu-plugin** (`add_action('wp_head', ..., 999)`) |
-| 17 | Nav items vertical instead of horizontal | `.e-con-inner` wrapper breaks flex layout | Target both `.class` and `.class.e-con > .e-con-inner` with `flex-direction: row !important` |
-| 18 | `WP_Query not found` error | Ran `php build_x.php` directly | Must use `wp eval-file build_x.php` for WP functions |
-| 19 | WordPress redirects to wrong port | `siteurl`/`home` options mismatch | `wp option update siteurl 'http://localhost:PORT'` |
-| 20 | Mu-plugin CSS not loading | Wrong file extension or syntax error | File must be `.php`, start with `<?php`, use `add_action('wp_head', ...)` |
+| 12 | Header/footer broke after rebuild | Internal Voxel configs lost | CSS overrides via MU plugin instead |
+| 13 | Background image from field won't load | `@tags()` unreliable in CSS bg | Use image widget or background_image setting |
+| 14 | Taxonomy shows raw slug | Missing `.label` suffix | Use `@post(field.label)` |
+| 15 | Select shows raw value | Missing `.label` suffix | Use `@post(field.label)` |
+| 16 | Repeater loop empty | Bad `_voxel_loop` value or bad JSON | Verify field key + `wp_slash(wp_json_encode())` |
+| 17 | Location shows JSON | Using `@post(location)` | Use `@post(location.address)` |
+| 18 | Icons are empty squares | Material Symbols font not loaded | Add MU plugin or `@import` in custom_css |
+| 19 | Badges invisible on hero | Light bg on dark overlay | Use `rgba(0,0,0,0.45)` for dark badges |
+| 20 | Hero overlay wrong intensity | Bad gradient values | Adjust `::before` linear-gradient stops |
 
 ---
 
-## Step 5: Debug Header & Mega Menu
+## Recommended Build Order
 
-### Mega menu doesn't appear on hover
+For a complete site from an HTML demo:
 
-1. **Check DOM structure:** The mega panel must be a **child** of the trigger wrapper, not a sibling.
-   ```bash
-   # Inspect the DOM — look for the nesting relationship
-   curl -s YOUR_URL | grep -A5 'mal-pa-wrapper'
-   ```
-2. **Check overflow:** All ancestor containers need `overflow: visible !important`.
-   ```bash
-   # Verify mu-plugin is loaded
-   curl -s YOUR_URL | grep 'mal-mega-menu-css'
-   ```
-3. **Check mu-plugin is active:** Mu-plugins load automatically — no activation needed. But verify the file:
-   ```bash
-   ls -la wp-content/mu-plugins/mal-mega-menu.php
-   wp eval 'var_dump(wp_get_mu_plugins());'
-   ```
-
-### Header nav items stacking vertically
-
-- Target both the class and its Elementor wrapper:
-  ```css
-  .mal-nav-area, .mal-nav-area.e-con, .mal-nav-area > .e-con-inner {
-      display: flex !important;
-      flex-direction: row !important;
-  }
-  ```
-
-### Mega menu appears but gets clipped
-
-- Add `overflow: visible !important` to **every** ancestor from `.mal-header` down to `.mal-pa-wrapper`.
-- Check with browser DevTools: right-click the mega panel → Inspect → look for any parent with `overflow: hidden`.
+1. **Setup** — `setup-post-types.php` (fields, taxonomies, search filters)
+2. **Images** — Generate/find images, sideload into WordPress
+3. **Demo Content** — `create-demo-content.php` (posts with all fields populated)
+4. **Card Template** — Build first (simplest, feeds into other pages)
+5. **Single Template** — Build second (references card template indirectly via related feed)
+6. **Archive Template** — Build third (uses card template via post feed)
+7. **Header** — Build with sticky + nav links
+8. **Footer** — Build with dark bg + multi-column
+9. **Verify All** — Check every page renders, clear caches
 
 ---
 
@@ -214,10 +279,11 @@ After Stage 3, your template should:
 - ✅ Render all dynamic content from custom fields
 - ✅ Display images correctly (not placeholders)
 - ✅ Show post feeds with populated cards
+- ✅ Render repeater loops (timelines, lists)
+- ✅ Display taxonomy/select labels (not slugs)
 - ✅ Have correct colors, fonts, and spacing
+- ✅ Show Material Symbols icons correctly
 - ✅ Work on mobile/tablet viewports
 - ✅ Pass the visual checklist above
-- ✅ Header renders horizontally with working mega menu dropdown
-- ✅ Mu-plugin CSS loads and overrides Elementor defaults
 
 **Template is production-ready.**
